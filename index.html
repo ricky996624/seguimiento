@@ -111,6 +111,15 @@ h1,h2,h3{font-family:var(--f-head);margin:0;text-wrap:balance}
 .tbl td{padding:4px 4px;border-top:1px solid var(--line);vertical-align:middle}
 .tbl td.n{font-family:var(--f-mono)}
 .scroll{overflow-x:auto}
+.tabbar{position:sticky;top:0;z-index:30;background:var(--bg);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);margin-bottom:16px;padding-top:6px}
+.tabbar .tabs{flex:1;min-width:0;border-bottom:0;margin:0}
+.tabbar>.btn{flex:none;margin-bottom:4px}
+.tabedit{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px}
+.tabedit .chip{display:inline-flex;align-items:center;gap:4px}
+.cmp{max-height:440px;overflow:auto;border-radius:10px}
+.cmp th:first-child,.cmp td:first-child{position:sticky;left:0;background:var(--panel);z-index:1;min-width:150px}
+.cmp thead th{position:sticky;top:0;background:var(--panel);z-index:2}
+.cmp thead th:first-child{z-index:3}
 .day{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2)}
 .day + .day{margin-top:10px}
 .day .cell{background:var(--panel)}
@@ -291,7 +300,7 @@ const monthName=ym=>{const[y,m]=ym.split('-').map(Number);const n=new Date(y,m-1
 const ISAK=[
   {id:'basic',title:'Medidas básicas',unit:'kg / cm',tol:1,open:true,sites:[['mass','Masa corporal','kg'],['stature','Estatura (de pie)','cm'],['sitting','Estatura sentada','cm'],['span','Envergadura','cm']]},
   {id:'skin',title:'Pliegues cutáneos',unit:'mm',tol:5,open:true,sites:[['sf_tri','Tríceps','mm'],['sf_sub','Subescapular','mm'],['sf_bic','Bíceps','mm'],['sf_ili','Cresta ilíaca','mm'],['sf_sup','Supraespinal','mm'],['sf_abd','Abdominal','mm'],['sf_thi','Muslo anterior','mm'],['sf_cal','Pantorrilla medial','mm']]},
-  {id:'girth',title:'Perímetros',unit:'cm',tol:1,open:true,sites:[['g_head','Cabeza','cm'],['g_neck','Cuello','cm'],['g_armr','Brazo relajado','cm'],['g_armf','Brazo flexionado y contraído','cm'],['g_fore','Antebrazo (máximo)','cm'],['g_wrist','Muñeca','cm'],['g_chest','Tórax (mesoesternal)','cm'],['g_waist','Cintura (mínimo)','cm'],['g_hip','Cadera (glúteos, máximo)','cm'],['g_thi1','Muslo (1 cm bajo el pliegue glúteo)','cm'],['g_thim','Muslo medio','cm'],['g_calf','Pantorrilla (máximo)','cm'],['g_ankle','Tobillo (mínimo)','cm']]},
+  {id:'girth',title:'Perímetros',unit:'cm',tol:1,open:true,sites:[['g_head','Cabeza','cm'],['g_neck','Cuello','cm'],['g_armr','Brazo relajado','cm'],['g_armf','Brazo flexionado y contraído','cm'],['g_fore','Antebrazo (máximo)','cm'],['g_wrist','Muñeca','cm'],['g_chest','Tórax (mesoesternal)','cm'],['g_waist','Cintura (mínimo)','cm'],['g_hip','Cadera (glúteos, máximo)','cm'],['g_abd','Abdomen (a la altura del ombligo)','cm'],['g_thim','Muslo medio','cm'],['g_calf','Pantorrilla (máximo)','cm'],['g_ankle','Tobillo (mínimo)','cm']]},
   {id:'breadth',title:'Diámetros óseos y de tórax',unit:'cm',tol:1,open:false,sites:[['b_biac','Biacromial','cm'],['b_biil','Biiliocrestal','cm'],['b_tch','Tórax transverso','cm'],['b_apch','Tórax anteroposterior','cm'],['b_hum','Biepicondíleo del húmero','cm'],['b_fem','Biepicondíleo del fémur','cm'],['b_wri','Biestiloideo (muñeca)','cm'],['b_ank','Bimaleolar (tobillo)','cm']]},
   {id:'length',title:'Longitudes y alturas',unit:'cm',tol:1,open:false,sites:[['l_acrad','Acromial-radial (brazo)','cm'],['l_radst','Radial-estiloideo (antebrazo)','cm'],['l_mstda','Estiloideo medio-dactilar (mano)','cm'],['l_ilih','Altura ilioespinal','cm'],['l_troh','Altura trocantérea','cm'],['l_trotib','Trocantérea-tibial lateral (muslo)','cm'],['l_tibh','Altura tibial lateral','cm'],['l_tibsph','Tibial medial-sphyrion (tibia)','cm'],['l_foot','Longitud del pie','cm']]}
 ];
@@ -333,7 +342,7 @@ const blank=()=>({name:'Nuevo cliente',phone:'',email:'',birth:'',since:today(),
 
 /* ---------- estado y guardado ---------- */
 const S={clients:{},sel:null,tab:'resumen',q:'',trainer:'',confirm:null,loaded:false,calMonth:today().slice(0,7),calSel:null,aSel:null,avar:'mass',home:'agenda',homeOpen:false,ag:{ws:mondayOf(today()),add:null}};
-const APP_VERSION='4.1';
+const APP_VERSION='4.2';
 const timers={},dirty={},inflight={};
 S.deleted={};S.lastSync=null;S.syncMsg='';S.backups=[];
 /* almacén local (IndexedDB): todo se guarda en este dispositivo */
@@ -341,8 +350,8 @@ const Store=(()=>{
   let dbp=null;
   const open=()=>dbp||(dbp=new Promise((res,rej)=>{
     if(!window.indexedDB){rej(new Error('sin indexedDB'));return}
-    const r=indexedDB.open('seguimiento',1);
-    r.onupgradeneeded=()=>{const d=r.result;['clients','meta','backups'].forEach(n=>d.createObjectStore(n))};
+    const r=indexedDB.open('seguimiento',2);
+    r.onupgradeneeded=()=>{const d=r.result;['clients','meta','backups','files'].forEach(n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n)})};
     r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
   }));
   const run=(store,mode,fn)=>open().then(d=>new Promise((res,rej)=>{
@@ -597,13 +606,15 @@ function nextSession(c){const t=today();for(let i=0;i<=35;i++){const d=addDays(t
 
 /* ---------- seguimiento corporal: series, composición, somatotipo ---------- */
 const TRK_ANT={mass:'mass',arm:'g_armr',waist:'g_waist',hip:'g_hip'};
+const tv=(t,k)=>{const x=t&&t[k];if(x==null)return null;if(Array.isArray(x)){const n=x.map(toNum).filter(v=>v!=null);return n.length?n.reduce((a,b)=>a+b,0)/n.length:null}return toNum(x)};
+const dayAvg=pts=>{const m={};pts.forEach(p=>{(m[p.date]=m[p.date]||[]).push(p.value)});return Object.keys(m).sort().map(d=>({date:d,value:m[d].reduce((a,b)=>a+b,0)/m[d].length}))};
 function series(c,key,since){
-  const m={};
-  (c.anthro||[]).forEach(e=>{const v=allVars(e)[TRK_ANT[key]];if(v!=null)m[e.date]={date:e.date,value:v,src:'isak'}});
-  (c.track||[]).forEach(t=>{const v=toNum(t[key]);if(v!=null)m[t.date]={date:t.date,value:v,src:'reg',id:t.id}});
-  return sorted(Object.values(m)).filter(p=>!since||p.date>=since);
+  const acc={};const add=(d,v,reg)=>{const a=acc[d]=acc[d]||{vals:[],reg:false};a.vals.push(v);if(reg)a.reg=true};
+  (c.anthro||[]).forEach(e=>{const v=allVars(e)[TRK_ANT[key]];if(v!=null)add(e.date,v,false)});
+  (c.track||[]).forEach(t=>{const v=tv(t,key);if(v!=null)add(t.date,v,true)});
+  return Object.keys(acc).sort().map(d=>({date:d,value:acc[d].vals.reduce((x,y)=>x+y,0)/acc[d].vals.length,src:acc[d].reg?'reg':'isak'})).filter(p=>!since||p.date>=since);
 }
-function lastTrack(c,key){const a=sorted((c.track||[]).filter(t=>toNum(t[key])!=null));const t=a[a.length-1];return t?{date:t.date,value:toNum(t[key])}:null}
+function lastTrack(c,key){const a=sorted((c.track||[]).filter(t=>tv(t,key)!=null));const t=a[a.length-1];return t?{date:t.date,value:tv(t,key)}:null}
 const ageAt=(birth,iso)=>birth?(new Date(iso+'T12:00:00')-new Date(birth+'T12:00:00'))/(365.25*864e5):null;
 const DW={M:[[17,20,1.1620,.0630],[20,30,1.1631,.0632],[30,40,1.1422,.0544],[40,50,1.1620,.0700],[50,200,1.1715,.0779]],
           F:[[17,20,1.1549,.0678],[20,30,1.1599,.0717],[30,40,1.1423,.0632],[40,50,1.1333,.0612],[50,200,1.1339,.0645]]};
@@ -622,7 +633,7 @@ function bfBy(c,e,m){
 function bfEstimate(c,e){const p=c.bfMethod||'dw';return bfBy(c,e,p)||bfBy(c,e,p==='dw'?'fa':'dw')}
 function bfLatest(c){
   const cand=[];
-  (c.track||[]).forEach(t=>{const v=toNum(t.bf);if(v!=null)cand.push({date:t.date,pct:v,src:'registro manual',pri:1})});
+  (c.track||[]).forEach(t=>{const v=tv(t,'bf');if(v!=null)cand.push({date:t.date,pct:v,src:'registro manual',pri:1})});
   (c.anthro||[]).forEach(e=>{const r=bfEstimate(c,e);if(r)cand.push({date:e.date,pct:r.pct,src:BF_NAME[r.method]+' (pliegues)',pri:0})});
   cand.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.pri-b.pri);
   return cand.pop()||null;
@@ -649,33 +660,45 @@ function somato(e){
 const f1=n=>Number(n).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
 
 /* ---------- gráficas ---------- */
+function smoothD(xy){
+  if(xy.length<2)return 'M'+xy[0][0].toFixed(1)+' '+xy[0][1].toFixed(1);
+  let d='M'+xy[0][0].toFixed(1)+' '+xy[0][1].toFixed(1);
+  for(let i=0;i<xy.length-1;i++){
+    const p0=xy[i-1]||xy[i],p1=xy[i],p2=xy[i+1],p3=xy[i+2]||p2;
+    const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6,c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
+    d+=' C'+c1x.toFixed(1)+' '+c1y.toFixed(1)+' '+c2x.toFixed(1)+' '+c2y.toFixed(1)+' '+p2[0].toFixed(1)+' '+p2[1].toFixed(1);
+  }
+  return d;
+}
 function chart(pts,o){
-  o=o||{};const C=o.c||'var(--accent)',T=o.t||'var(--muted)',G=o.g||'var(--line)';
-  const W=o.w||560,H=o.h||170,L=46,R=16,Tp=16,B=26;
+  o=o||{};pts=dayAvg(pts);if(!pts.length)return '';
+  const C=o.c||'var(--accent)',T=o.t||'var(--muted)',G=o.g||'var(--line)',BG=o.bg||'var(--panel)';
+  const W=o.w||560,H=o.h||170,L=48,R=18,Tp=24,B=26;
   const ts=pts.map(p=>new Date(p.date+'T12:00:00').getTime());
   const vs=pts.map(p=>p.value);
   let lo=Math.min(...vs),hi=Math.max(...vs);
   if(lo===hi){lo-=1;hi+=1}
-  const pad=(hi-lo)*.15;lo-=pad;hi+=pad;
+  const pad=(hi-lo)*.18;lo-=pad;hi+=pad;
   const t0=Math.min(...ts),t1=Math.max(...ts);
   const X=t=>t1===t0?(L+(W-L-R)/2):L+(t-t0)/(t1-t0)*(W-L-R);
   const Y=v=>Tp+(hi-v)/(hi-lo)*(H-Tp-B);
-  let g='';
-  const rng=hi-lo,raw=rng/3,mag=Math.pow(10,Math.floor(Math.log10(raw))),nf=raw/mag;
-  const step=(nf<1.5?1:nf<3.5?2:nf<7.5?5:10)*mag;
-  const ticks=[];for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)ticks.push(Math.round(v/step)*step);
-  ticks.forEach(v=>{const y=Y(v);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${G}" stroke-width="1"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${T}" font-family="IBM Plex Mono,monospace">${num(v)}</text>`});
-  const d=pts.map((p,i)=>(i?'L':'M')+X(ts[i]).toFixed(1)+' '+Y(p.value).toFixed(1)).join(' ');
-  const dots=pts.map((p,i)=>`<circle cx="${X(ts[i]).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="${i===pts.length-1?5:3}" fill="${i===pts.length-1?C:'#fff'}" stroke="${C}" stroke-width="2"/>`).join('');
-  const lx=X(ts[ts.length-1]),ly=Y(vs[vs.length-1]);
-  const anchor=lx>W-60?'end':'middle';
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución" style="display:block;max-width:100%">${g}
-    <path d="${d}" fill="none" stroke="${C}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}
-    <text x="${lx}" y="${ly-10}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="${o.lab||'currentColor'}" font-family="IBM Plex Mono,monospace">${num(vs[vs.length-1])}</text>
-    <text x="${L}" y="${H-6}" font-size="11" fill="${T}" font-family="IBM Plex Mono,monospace">${fmtS(pts[0].date)}</text>
-    ${pts.length>1?`<text x="${W-R}" y="${H-6}" text-anchor="end" font-size="11" fill="${T}" font-family="IBM Plex Mono,monospace">${fmtS(pts[pts.length-1].date)}</text>`:''}</svg>`;
+  const raw=(hi-lo)/3,mag=Math.pow(10,Math.floor(Math.log10(raw))),nf=raw/mag,step=(nf<1.5?1:nf<3.5?2:nf<7.5?5:10)*mag;
+  let g='';for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step){const r=Math.round(v/step)*step,y=Y(r).toFixed(1);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${G}" stroke-dasharray="3 4"/><text x="${L-8}" y="${(+y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="${T}" font-family="IBM Plex Mono,monospace">${num(r)}</text>`}
+  const xy=pts.map((p,i)=>[X(ts[i]),Y(p.value)]);
+  const line=smoothD(xy),base=(H-B).toFixed(1),last=xy[xy.length-1];
+  const area=line+` L${last[0].toFixed(1)} ${base} L${xy[0][0].toFixed(1)} ${base} Z`;
+  const gid='cg'+uid();
+  const dots=xy.slice(0,-1).map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" style="fill:${BG};stroke:${C}" stroke-width="2"/>`).join('');
+  const lv=num(vs[vs.length-1]);const pillW=Math.max(44,lv.length*8+16);
+  const anchor=last[0]>W-70?'end':'middle';
+  const px=anchor==='end'?last[0]-pillW+8:last[0]-pillW/2;
+  const py=last[1]<44?last[1]+12:last[1]-34;
+  const xl=[pts[0].date,...(pts.length>=3?[pts[Math.floor(pts.length/2)].date]:[]),...(pts.length>1?[pts[pts.length-1].date]:[])];
+  const xlab=xl.map((d,k)=>{const x=k===0?L:k===xl.length-1?W-R:X(new Date(d+'T12:00:00').getTime());return `<text x="${x.toFixed(1)}" y="${H-6}" text-anchor="${k===0?'start':k===xl.length-1?'end':'middle'}" font-size="11" fill="${T}" font-family="IBM Plex Mono,monospace">${fmtS(d)}</text>`}).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución" style="display:block;max-width:100%"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${C};stop-opacity:.26"/><stop offset="1" style="stop-color:${C};stop-opacity:0"/></linearGradient></defs>${g}<path d="${area}" fill="url(#${gid})"/><path d="${line}" fill="none" stroke="${C}" stroke-width="2.5" stroke-linecap="round"/>${dots}<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="9" style="fill:${C};opacity:.18"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" style="fill:${C}"/><rect x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pillW}" height="22" rx="11" style="fill:${C}"/><text x="${(px+pillW/2).toFixed(1)}" y="${(py+15).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff" font-family="IBM Plex Mono,monospace">${lv}</text>${xlab}</svg>`;
 }
 function chartMulti(list,o){
+  list=list.map(s=>Object.assign({},s,{pts:dayAvg(s.pts)}));
   o=o||{};const T=o.t||'var(--muted)',G=o.g||'var(--line)';
   const cols=[o.c||'var(--accent)',o.c2||'var(--c2)'];
   const W=o.w||560,H=o.h||200,L=46,R=18,Tp=30,B=26;
@@ -692,7 +715,7 @@ function chartMulti(list,o){
   let body='',leg='',lx0=L;
   list.forEach((s,i)=>{
     const C=cols[i];if(!s.pts.length)return;
-    const d=s.pts.map((p,j)=>(j?'L':'M')+X(new Date(p.date+'T12:00:00').getTime()).toFixed(1)+' '+Y(p.value).toFixed(1)).join(' ');
+    const d=smoothD(s.pts.map(p=>[X(new Date(p.date+'T12:00:00').getTime()),Y(p.value)]));
     body+=`<path d="${d}" fill="none" stroke="${C}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     body+=s.pts.map((p,j)=>`<circle cx="${X(new Date(p.date+'T12:00:00').getTime()).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="${j===s.pts.length-1?5:3}" fill="${j===s.pts.length-1?C:'#fff'}" stroke="${C}" stroke-width="2"/>`).join('');
     const lp=s.pts[s.pts.length-1],x=X(new Date(lp.date+'T12:00:00').getTime()),y=Y(lp.value);
@@ -725,7 +748,7 @@ function miniTable(c,key,unit,o){
   const pts=series(c,key,o.since);
   if(!pts.length)return `<div class="${o.lit?'fn':'empty'}" style="${o.lit?'':'padding:14px'}">Sin registros</div>`;
   const rows=pts.map((p,i)=>({p,d:i?p.value-pts[i-1].value:null})).reverse().slice(0,o.max||999);
-  return `<div class="${o.lit?'':'tscroll'}"><table class="${o.lit?'':'tbl'}"><thead><tr><th>Día</th><th>${unit}</th><th>Cambio</th>${o.del?'<th></th>':''}</tr></thead><tbody>${rows.map(({p,d})=>`<tr><td class="n">${fmtD(p.date)}</td><td class="n"><b>${num(p.value)}</b></td><td class="n">${d==null?'—':(d>0?'+':'')+num(d)}</td>${o.del?`<td style="text-align:right">${p.src==='reg'?`<button class="btn sm ghost danger" data-a="delTrack" data-i="${p.id}" data-j="${key}" aria-label="Quitar este registro">×</button>`:'<span class="muted" title="Viene de la valoración ISAK" style="font-size:11px">ISAK</span>'}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="${o.lit?'':'tscroll'}"><table class="${o.lit?'':'tbl'}"><thead><tr><th>Día</th><th>${unit}</th><th>Cambio</th>${o.del?'<th></th>':''}</tr></thead><tbody>${rows.map(({p,d})=>`<tr><td class="n">${fmtD(p.date)}</td><td class="n"><b>${num(p.value)}</b></td><td class="n">${d==null?'—':(d>0?'+':'')+num(d)}</td>${o.del?`<td style="text-align:right">${p.src==='reg'?`<button class="btn sm ghost danger" data-a="delTrack" data-i="${p.date}" data-j="${key}" aria-label="Quitar este registro">×</button>`:'<span class="muted" title="Viene de la valoración ISAK" style="font-size:11px">ISAK</span>'}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
 }
 const RC={c:'#D9512A',c2:'#2F6FA3',t:'#5B6E68',g:'#E3E9E6',lab:'#14302B'};
 function pesoBlock(c,o){
@@ -840,7 +863,7 @@ function tDatos(){
     <div class="row"><button class="btn pri" data-a="syncPick">↻ Actualizar desde archivo</button><button class="btn" data-a="syncSave">Guardar archivo de sincronización</button></div>
     ${S.syncMsg?`<div class="alert ok" style="margin-top:12px">${esc(S.syncMsg)}</div>`:''}
     <p class="muted" style="font-size:12px;margin:10px 0 0">Última actualización: ${fmtStamp(S.lastSync)}. Si los dos dispositivos cambian el mismo cliente, se queda el cambio más reciente. Elegir un archivo antiguo nunca borra datos nuevos. El mismo botón sirve para cargar una copia de seguridad o tus datos por primera vez.</p></details>
-  <div class="card"><div class="sec"><h3>Copias de seguridad</h3><button class="btn sm" data-a="dlBackup">Descargar copia ahora</button></div>
+  <div class="card"><div class="sec"><h3>Copias de seguridad</h3><button class="btn sm" data-a="dlBackup">Exportar todos los clientes (JSON)</button></div>
     <p class="muted" style="margin:0 0 10px">La app guarda una copia automática el primer día que la abres y otra antes de cada actualización (las últimas 40). Restaurar vuelve a ese momento; antes de hacerlo guarda una copia del estado actual.</p>
     ${nb.length?nb.map(b=>`<div class="row" style="padding:6px 0;border-top:1px solid var(--line)"><span class="grow"><b>${fmtStamp(b.ts)}</b> <span class="muted">· ${b.n} clientes${/restaurar/.test(b.key)?' · antes de restaurar':/actualizar/.test(b.key)?' · antes de actualizar':''}</span></span>
       ${S.confirm==='restore:'+b.key?`<button class="btn sm danger" data-a="restore" data-i="${esc(b.key)}">Confirmar restauración</button><button class="btn sm ghost" data-a="cancelRestore">Cancelar</button>`:`<button class="btn sm" data-a="restore" data-i="${esc(b.key)}">Restaurar</button>`}</div>`).join(''):'<div class="empty">Todavía no hay copias. Se crean solas cuando haya clientes.</div>'}</div>
@@ -924,7 +947,33 @@ function tHome(){
 }
 
 /* ---------- pestañas ---------- */
-const TABS=[['resumen','Resumen'],['ficha','Ficha'],['val','Valoraciones'],['plan','Plan y cargas'],['ses','Sesiones y bono'],['notas','Objetivos y notas'],['informe','Informe']];
+const TABS=[['resumen','Resumen'],['ficha','Ficha'],['docs','Documentos firmados'],['val','Valoraciones'],['plan','Plan y cargas'],['ses','Sesiones y bono'],['notas','Objetivos y notas'],['informe','Informe']];
+function tabList(){const d=TABS.map(t=>t[0]);const o=(S.tabOrder||[]).filter(k=>d.includes(k));d.forEach(k=>{if(!o.includes(k))o.push(k)});return o}
+function tabBar(){
+  const L=tabList(),lab=k=>TABS.find(t=>t[0]===k)[1];
+  return `<div class="tabbar"><div class="tabs" role="tablist">${L.map(k=>`<button role="tab" data-a="tab" data-i="${k}" aria-selected="${k===S.tab}">${lab(k)}</button>`).join('')}</div><button class="btn sm ghost" data-a="tabEdit">${S.tabEdit?'Listo':'Ordenar'}</button></div>
+  ${S.tabEdit?`<div class="tabedit">${L.map((k,i)=>`<span class="chip">${lab(k)} <button class="btn sm ghost" data-a="tabMove" data-i="${k}" data-j="-1" ${i?'':'disabled'} aria-label="Mover a la izquierda">◀</button><button class="btn sm ghost" data-a="tabMove" data-i="${k}" data-j="1" ${i<L.length-1?'':'disabled'} aria-label="Mover a la derecha">▶</button></span>`).join('')}</div>`:''}`;
+}
+async function loadDocImgs(){
+  if(!storeOk||!S.sel)return;const id=S.sel;
+  for(const k of ['rgpd','consent','parq','medico']){
+    const el=$('#docimg-'+k);if(!el)continue;
+    try{const b=await Store.get('files',id+':'+k);if(id!==S.sel||!$('#docimg-'+k))return;
+      el.innerHTML=b?`<div class="row" style="margin-top:10px;align-items:center;gap:12px"><img alt="Documento firmado" src="${URL.createObjectURL(b)}" style="max-width:240px;max-height:170px;border-radius:8px;border:1px solid var(--line)"><button class="btn sm ghost danger" data-a="docDel" data-i="${k}">Quitar foto</button></div>`:''}catch(e){}
+  }
+}
+async function docUpload(input){
+  const key=input.dataset.docf,file=input.files[0];input.value='';
+  if(!file||!storeOk||!S.sel)return;
+  try{
+    const url=URL.createObjectURL(file),img=new Image();img.src=url;await img.decode();
+    const sc=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight));
+    const cv=document.createElement('canvas');cv.width=Math.round(img.naturalWidth*sc);cv.height=Math.round(img.naturalHeight*sc);
+    cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);URL.revokeObjectURL(url);
+    const blob=await new Promise(res=>cv.toBlob(res,'image/jpeg',0.82));
+    await Store.put('files',S.sel+':'+key,blob);renderTab();toast('Foto guardada en este dispositivo');
+  }catch(e){toast('No se pudo guardar la foto')}
+}
 
 function renderMain(){
   document.body.classList.toggle('show-main',!!S.sel||S.homeOpen);
@@ -934,14 +983,15 @@ function renderMain(){
   m.innerHTML=`<button class="btn back" data-a="back">← Clientes</button>
   <div class="head"><div><h2 id="hname">${esc(c.name||'Sin nombre')}</h2>
     <div class="chips"><span class="chip">${STATUS[c.status]||''}</span><span class="chip">${c.tipo==='rendimiento'?'Rendimiento':'Salud'}</span><span class="chip ${sem[1]}">Salud: ${c.semaforo||'verde'}</span>${c.since?`<span class="chip">Cliente desde ${fmtD(c.since)}</span>`:''}</div></div></div>
-  <div class="tabs" role="tablist">${TABS.map(([k,t])=>`<button role="tab" data-a="tab" data-i="${k}" aria-selected="${k===S.tab}">${t}</button>`).join('')}</div>
+  ${tabBar()}
   <div id="tabbody"></div>`;
   renderTab();
 }
 function renderTab(){
   const c=cur();if(!c)return;
-  const f={resumen:tResumen,ficha:tFicha,val:tVal,plan:tPlan,ses:tSes,notas:tNotas,informe:tInforme}[S.tab];
+  const f={resumen:tResumen,ficha:tFicha,docs:tDocs,val:tVal,plan:tPlan,ses:tSes,notas:tNotas,informe:tInforme}[S.tab];
   $('#tabbody').innerHTML=f(c);
+  if(S.tab==='docs')loadDocImgs();
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.i===S.tab));
 }
 
@@ -955,6 +1005,9 @@ function tResumen(c){
   const nx=nextSession(c);
   return `${prec}${al.map(a=>`<div class="alert ${a.lv}">${esc(a.t)}</div>`).join('')}
   <div class="row" style="margin-bottom:12px"><button class="btn pri" data-a="quick" data-i="asistio">Hoy ha asistido</button><button class="btn" data-a="quick" data-i="falto">Hoy no ha venido</button><button class="btn ghost" data-a="tab" data-i="ses">Horario y calendario</button>${nx&&waLink(c,nx.date,nx.time)?`<a class="btn ghost" href="${waLink(c,nx.date,nx.time)}" target="_blank" rel="noopener">Recordar próxima sesión por WhatsApp</a>`:''}</div>
+  <div class="card" style="margin-bottom:14px"><div class="sec"><h3>Para la próxima sesión</h3><button class="btn sm" data-a="archiveNote">Ya lo he hecho: archivar</button></div>
+    <textarea data-p="nextNote" rows="2" style="width:100%" placeholder="Ej.: revisar técnica de peso muerto; preguntar cómo fue la semana de la rodilla" aria-label="Nota para la próxima sesión">${esc(c.nextNote||'')}</textarea>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Aquí lo que quieras recordar para la siguiente sesión. Al archivarla, pasa al historial de Objetivos y notas.</p></div>
   <div class="grid g4">
     <div class="stat"><small>Bono</small><b>${bo.type==='bono'&&bo.total?bo.left+'/'+bo.total:'—'}</b><i>${bo.type==='bono'&&bo.total?'sesiones restantes':(BTYPE[bo.type]||'sin bono')}</i></div>
     <div class="stat"><small>Asistencia 30 días</small><b>${st.pct==null?'—':st.pct+'%'}</b><i>${st.total?st.ok+' de '+st.total+' sesiones':'sin sesiones'}</i></div>
@@ -997,12 +1050,7 @@ function tFicha(c){
     ${fld('Resultado','semaforo',c.semaforo||'verde',{type:'select',opts:Object.entries(SEM).map(([k,v])=>[k,v[0]])})}
     ${fld('Qué hay que tener en cuenta','semaforoNota',c.semaforoNota,{type:'textarea',rows:2,ph:'Adaptaciones, derivación, restricciones indicadas por profesionales'})}
   </div><p class="muted" style="margin:10px 0 0;font-size:12px">Estos datos son solo para ti: no aparecen en el informe del cliente.</p></div>
-  <div class="card"><div class="sec"><h3>Documentación firmada</h3></div><div class="grid g3">
-    ${fld('Consentimiento de datos (RGPD)','docs.rgpd',d.rgpd,{type:'date'})}
-    ${fld('Consentimiento informado','docs.consent',d.consent,{type:'date'})}
-    ${fld('PAR-Q+','docs.parq',d.parq,{type:'date'})}
-    ${fld('Reconocimiento médico (opcional)','docs.medico',d.medico,{type:'date'})}
-  </div><p class="muted" style="margin:10px 0 0;font-size:12px">Pon la fecha de firma. Si falta alguna, te lo recuerdo en el Resumen.</p></div>
+  <div class="card"><div class="sec"><h3>Documentación</h3></div><p class="muted" style="margin:0">Consentimientos, PAR-Q+ y reconocimiento médico están en la pestaña <b>Documentos firmados</b>.</p></div>
   <div class="card"><div class="sec"><h3>Entrevista inicial</h3></div><div class="grid g2">
     ${fld('Experiencia y nivel','ficha.experiencia',f.experiencia,{type:'textarea',ph:'Deporte previo, experiencia en fuerza, tiempo sin entrenar'})}
     ${fld('Lesiones y molestias','ficha.lesiones',f.lesiones,{type:'textarea',ph:'Zona, lado, fecha, si se recuperó'})}
@@ -1012,6 +1060,7 @@ function tFicha(c){
     ${fld('Preferencias y cosas que evita','ficha.preferencias',f.preferencias,{type:'textarea',ph:'Ejercicios, material, tipo de corrección'})}
     ${fld('Expectativas','ficha.expectativas',f.expectativas,{type:'textarea',span:1})}
   </div></div>
+  <div class="card"><div class="sec"><h3>Exportar este cliente</h3></div><p class="muted" style="margin:0 0 10px">Guarda un archivo JSON con todos los datos de este cliente (incluida la salud): para tu copia de seguridad.</p><button class="btn" data-a="exportOne">Exportar datos de este cliente</button></div>
   <div class="card"><div class="sec"><h3>Zona de baja</h3></div>
     <button class="btn danger" data-a="delClient">${S.confirm==='del'?'Pulsa otra vez para borrar a este cliente':'Borrar cliente y todo su historial'}</button></div>`;
 }
@@ -1060,11 +1109,18 @@ function evoHTML(c){
   const withData=Object.keys(VARNAME).filter(k=>an.some(s=>allVars(s)[k]!=null));
   if(!withData.includes(S.avar))S.avar=withData[0]||'mass';
   const pts=an.map(s=>({date:s.date,value:allVars(s)[S.avar]})).filter(p=>p.value!=null);
-  const first=an[0]&&allVars(an[0]),last=an[an.length-1]&&allVars(an[an.length-1]);
-  const cmp=an.length>1?['mass','sum6','sum8','g_waist','g_hip','g_armf','g_thim','bmi'].filter(k=>first[k]!=null&&last[k]!=null):[];
-  return `<div class="sec"><h3>Evolución corporal</h3><label class="f" style="min-width:230px"><select id="avar" aria-label="Variable">${withData.map(k=>`<option value="${k}"${k===S.avar?' selected':''}>${esc(VARNAME[k][0])}</option>`).join('')}</select></label></div>
-    ${pts.length?`<div class="mtr"><header><b>${esc(VARNAME[S.avar][0])}</b><span class="num">${fmtV(S.avar,pts[pts.length-1].value)} <small class="muted">${esc(VARNAME[S.avar][1])}</small></span></header>${chart(pts,{h:160})}<div class="delta">${deltaTxt(pts)}</div></div>`:`<div class="empty">Sin datos de esta variable todavía.</div>`}
-    ${cmp.length?`<div class="scroll"><table class="tbl" style="margin-top:12px"><thead><tr><th>Variable</th><th>Primera (${fmtD(an[0].date)})</th><th>Última (${fmtD(an[an.length-1].date)})</th><th>Cambio</th></tr></thead><tbody>${cmp.map(k=>{const dl=last[k]-first[k];return `<tr><td>${esc(VARNAME[k][0])} <span class="muted">${VARNAME[k][1]}</span></td><td class="n">${fmtV(k,first[k])}</td><td class="n">${fmtV(k,last[k])}</td><td class="n">${dl>0?'+':''}${fmtV(k,dl)}</td></tr>`}).join('')}</tbody></table></div>`:''}`;
+  const gid=ISAK.some(g=>g.id===S.cgroup)?S.cgroup:'skin';
+  const G=ISAK.find(g=>g.id===gid);
+  const rows=G.sites.map(s=>s[0]).filter(k=>an.some(e=>allVars(e)[k]!=null));
+  const multi=an.length>1;
+  const table=an.length&&rows.length?`<div class="scroll cmp"><table class="tbl"><thead><tr><th>${esc(G.title)}</th>${an.map(e=>`<th class="n">${fmtD(e.date)}</th>`).join('')}${multi?'<th class="n">Cambio</th>':''}</tr></thead><tbody>${rows.map(k=>{
+    const vals=an.map(e=>allVars(e)[k]);const f=vals.find(v=>v!=null),l=vals.slice().reverse().find(v=>v!=null);const dl=multi&&f!=null&&l!=null?l-f:null;
+    return `<tr><td>${esc(SITE[k].name)} <span class="muted">${SITE[k].unit}</span></td>${vals.map(v=>`<td class="n">${v==null?'<span class="muted">—</span>':fmtV(k,v)}</td>`).join('')}${multi?`<td class="n">${dl==null?'—':(dl>0?'+':'')+fmtV(k,dl)}</td>`:''}</tr>`}).join('')}</tbody></table></div>`:'';
+  return `<div class="sec"><h3>Comparar medidas entre fechas</h3><label class="f" style="min-width:230px"><span>Grupo</span><select id="cgroup" aria-label="Grupo de medidas">${ISAK.map(g=>`<option value="${g.id}"${g.id===gid?' selected':''}>${esc(g.title)}</option>`).join('')}</select></label></div>
+    ${table||'<div class="empty">Aún no hay mediciones de este grupo.</div>'}
+    <p class="muted" style="font-size:12px;margin:8px 0 18px">Todas las fechas en una tabla: así puedes seguir cada pliegue o perímetro de una a otra sin cambiar de medición.</p>
+    <div class="sec"><h3>Evolución corporal</h3><label class="f" style="min-width:230px"><select id="avar" aria-label="Variable">${withData.map(k=>`<option value="${k}"${k===S.avar?' selected':''}>${esc(VARNAME[k][0])}</option>`).join('')}</select></label></div>
+    ${pts.length?`<div class="mtr"><header><b>${esc(VARNAME[S.avar][0])}</b><span class="num">${fmtV(S.avar,pts[pts.length-1].value)} <small class="muted">${esc(VARNAME[S.avar][1])}</small></span></header>${chart(pts,{h:170})}<div class="delta">${deltaTxt(pts)}</div></div>`:`<div class="empty">Sin datos de esta variable todavía.</div>`}`;
 }
 function anthroCard(c){
   const an=sorted(c.anthro||[]);const e=aSession(c);
@@ -1111,13 +1167,34 @@ function metricCards(c,cat,empty){
     <details style="margin-top:6px"><summary class="muted" style="font-size:12px;font-weight:400">Registros (${p.length})</summary>
     <table class="tbl"><tbody>${p.slice().reverse().map(x=>`<tr><td class="n">${fmtD(x.date)}</td><td class="n">${num(x.value)} ${esc(x.unit)}</td><td style="text-align:right"><button class="btn sm ghost danger" data-a="delMetric" data-i="${x.id}">Quitar</button></td></tr>`).join('')}</tbody></table></details></div>`}).join('');
 }
+function metricCompare(c,cat){
+  const g=metricGroups(c,cat),names=Object.keys(g);
+  if(!names.length)return '';
+  const dates=[...new Set(Object.values(g).flat().map(x=>x.date))].sort();
+  const shown=dates.slice(-6);
+  return `<div class="subh">Comparar pruebas por fecha</div><div class="scroll cmp"><table class="tbl"><thead><tr><th>Prueba</th>${shown.map(d=>`<th class="n">${fmtD(d)}</th>`).join('')}<th class="n">Cambio total</th></tr></thead><tbody>${names.map(n=>{
+    const p=g[n];const cells=shown.map(d=>{const x=p.filter(q=>q.date===d);return x.length?num(x.reduce((a,b)=>a+b.value,0)/x.length):'<span class="muted">—</span>'});
+    const dl=p.length>1?p[p.length-1].value-p[0].value:null;
+    return `<tr><td>${esc(n)} <span class="muted">${esc(p[0].unit)}</span></td>${cells.map(v=>`<td class="n">${v}</td>`).join('')}<td class="n">${dl==null?'—':(dl>0?'+':'')+num(dl)}</td></tr>`}).join('')}</tbody></table></div>
+  <p class="muted" style="font-size:12px;margin:6px 0 0">Si hay dos pruebas el mismo día, se muestra su media.</p>`;
+}
 function tVal(c){
   return `${anthroCard(c)}
   <div class="card"><div class="sec"><h3>Pruebas de rendimiento</h3></div>
   <p class="muted" style="margin:0 0 12px">Salto, fuerza máxima, prensión manual y lo que decidas medir. Puedes escribir cualquier otra prueba.</p>
-  ${metricForm('valoracion')}${metricCards(c,'valoracion','Aún no hay pruebas registradas.')}</div>`;
+  ${metricForm('valoracion')}${metricCompare(c,'valoracion')}${metricCards(c,'valoracion','Aún no hay pruebas registradas.')}</div>`;
 }
 
+function tDocs(c){
+  const d=c.docs||{};
+  const items=[['rgpd','Consentimiento de datos (RGPD)','Para guardar sus datos personales y de salud.'],['consent','Consentimiento informado','Riesgos, condiciones y derecho a dejar el entrenamiento.'],['parq','PAR-Q+','Cuestionario de aptitud para la actividad física.'],['medico','Reconocimiento médico (opcional)','Solo si lo ha aportado o se lo has pedido.']];
+  return `<div class="head"><div><h2>Documentos firmados</h2><p class="muted" style="margin:4px 0 0">Pon la fecha de firma y, si quieres, una foto del papel. La foto se guarda solo en este dispositivo: no se sincroniza en la nube.</p></div></div>
+  ${items.map(([k,n,hint])=>`<div class="card"><div class="sec"><h3>${n}</h3><span class="chip ${d[k]?'ok':'warn'}">${d[k]?'Firmado el '+fmtD(d[k]):'Pendiente'}</span></div>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">${hint}</p>
+    <div class="inl"><label class="f"><span>Fecha de firma</span><input type="date" data-p="docs.${k}" value="${esc(d[k]||'')}"></label>
+    <label class="f" style="flex:2 1 220px"><span>Foto del papel firmado (opcional)</span><input type="file" accept="image/*" capture="environment" data-docf="${k}"></label></div>
+    <div id="docimg-${k}"></div></div>`).join('')}`;
+}
 function tPlan(c){
   const days=(c.plan&&c.plan.days)||[];
   return `<div class="card"><div class="sec"><h3>Plan actual</h3><button class="btn sm" data-a="addDay">Añadir día</button></div>
@@ -1191,6 +1268,7 @@ function tNotas(c){
   <div class="inl"><label class="f" style="flex:3 1 240px"><span>Nuevo objetivo</span><input id="gf-text" placeholder="Ej.: mejorar el CMJ en 3 cm"></label><label class="f"><span>Fecha límite</span><input id="gf-date" type="date"></label><button class="btn pri" data-a="addGoal">Añadir</button></div>
   <div style="margin-top:10px">${goals.length?goals.map((g,i)=>`<div class="gl"><input type="checkbox" data-p="goals.${i}.done" data-t="check" ${g.done?'checked':''} aria-label="Cumplido"><span class="grow" style="flex:1;${g.done?'text-decoration:line-through;color:var(--muted)':''}">${esc(g.text)}</span>${g.date?`<span class="chip">${fmtD(g.date)}</span>`:''}<button class="btn sm ghost danger" data-a="delGoal" data-i="${i}">Quitar</button></div>`).join(''):`<div class="empty">Sin objetivos. Define metas medibles con fecha.</div>`}</div>
   <div class="grid g2" style="margin-top:14px">${fld('Próxima revisión','nextReview',c.nextReview,{type:'date'})}</div></div>
+  ${(c.notesHist||[]).length?`<div class="card"><div class="sec"><h3>Notas de sesiones anteriores</h3><span class="muted">${c.notesHist.length}</span></div>${c.notesHist.slice().reverse().map(n=>`<div class="note"><small class="muted">${fmtD(n.date)}</small><div>${esc(n.text)}</div></div>`).join('')}</div>`:''}
   <div class="card"><div class="sec"><h3>Notas privadas</h3></div>
   <div class="inl"><label class="f" style="flex:3 1 260px"><span>Nueva nota</span><input id="nf-text" placeholder="Qué has observado o acordado"></label><button class="btn pri" data-a="addNote">Guardar nota</button></div>
   <div style="margin-top:10px">${notes.length?notes.map(n=>`<div class="note"><div class="row"><small class="grow">${fmtD(n.date)}</small><button class="btn sm ghost danger" data-a="delNote" data-i="${n.id}">Quitar</button></div><div>${esc(n.text)}</div></div>`).join(''):`<div class="empty">Aún no hay notas.</div>`}</div></div>`;
@@ -1351,14 +1429,14 @@ const A={
     const vals={mass:toNum(g('mass')),arm:toNum(g('arm')),waist:toNum(g('waist')),hip:toNum(g('hip')),bf:toNum(g('bf')),metage:toNum(g('age'))};
     if(Object.values(vals).every(v=>v==null)){toast('Escribe al menos una medida');return}
     const c=cur();c.track=c.track||[];
-    let t=c.track.find(x=>x.date===date);if(!t){t={id:uid(),date};c.track.push(t)}
-    Object.keys(vals).forEach(k=>{if(vals[k]!=null)t[k]=vals[k]});
-    upd();renderTab();toast('Registro guardado');
+    let t=c.track.find(x=>x.date===date);const existed=!!t;if(!t){t={id:uid(),date};c.track.push(t)}
+    Object.keys(vals).forEach(k=>{if(vals[k]==null)return;const old=t[k];const arr=old==null?[]:Array.isArray(old)?old:[old];arr.push(vals[k]);t[k]=arr.length===1?arr[0]:arr});
+    upd();renderTab();toast(existed?'Guardado: con los de ese día se hace la media':'Registro guardado');
   },
-  delTrack(id,key){
-    const c=cur();const t=(c.track||[]).find(x=>x.id===id);if(!t)return;
+  delTrack(date,key){
+    const c=cur();const t=(c.track||[]).find(x=>x.date===date);if(!t)return;
     delete t[key];
-    if(!['mass','arm','waist','hip','bf','metage'].some(k=>t[k]!=null))c.track=c.track.filter(x=>x.id!==id);
+    if(!['mass','arm','waist','hip','bf','metage'].some(k=>t[k]!=null))c.track=c.track.filter(x=>x!==t);
     upd();renderTab();
   },
   addSlot(){
@@ -1372,9 +1450,15 @@ const A={
   },
   delSlot(i){const c=cur();c.sched.slots.splice(+i,1);upd();renderTab()},
   tab(i){S.tab=i;S.confirm=null;renderTab()},
+  tabEdit(){S.tabEdit=!S.tabEdit;renderMain()},
+  tabMove(k,dir){const L=tabList();const i=L.indexOf(k),j=i+Number(dir);if(j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];S.tabOrder=L;if(storeOk)Store.put('meta','tabOrder',L).catch(()=>{});renderMain()},
+  archiveNote(){const c=cur();if(!c)return;if(!c.nextNote){toast('Escribe primero una nota');return}c.notesHist=(c.notesHist||[]).concat([{id:uid(),date:today(),text:c.nextNote}]);c.nextNote='';upd();renderTab();toast('Nota archivada en Objetivos y notas')},
+  docDel(k){if(storeOk)Store.del('files',S.sel+':'+k).catch(()=>{});setTimeout(()=>renderTab(),50)},
+  exportOne(){const c=cur();if(!c)return;const d={app:'seguimiento-clientes',format:1,version:APP_VERSION,exportedAt:Date.now(),trainer:S.trainer,clients:{[S.sel]:clone(c)},deleted:{}};saveFile('Cliente_'+(c.name||'sin-nombre').replace(/[^\w]+/g,'_')+'_'+stamp()+'.json',new Blob([JSON.stringify(d,null,1)],{type:'application/json'}))},
   delClient(){
     if(S.confirm!=='del'){S.confirm='del';renderTab();return}
     const id=S.sel;S.confirm=null;delete S.clients[id];S.sel=null;
+    if(storeOk)Store.all('files').then(all=>Object.keys(all).filter(k=>k.startsWith(id+':')).forEach(k=>Store.del('files',k))).catch(()=>{});
     S.deleted[id]=Date.now();saveDeleted();scheduleSync(1500);if(storeOk)Store.del('clients',id).catch(()=>toast('No se pudo borrar'));
     renderList();renderMain();toast('Cliente borrado');
   },
@@ -1446,6 +1530,8 @@ function onBind(e){
   if((t.id==='dp-time'||t.id==='dp-dur')&&e.type==='change'){const c=cur(),s=c&&S.calSel&&ensureEntry(c,S.calSel);if(s){if(t.id==='dp-time')s.time=t.value;else s.dur=Number(t.value)||60;touch(S.sel);renderTab()}return}
   if(t.id==='asel'&&e.type==='change'){S.aSel=t.value;S.confirm=null;renderTab();return}
   if(t.id==='avar'&&e.type==='change'){S.avar=t.value;renderTab();return}
+  if(t.id==='cgroup'&&e.type==='change'){S.cgroup=t.value;renderTab();return}
+  if(t.dataset.docf&&e.type==='change'){docUpload(t);return}
   if(t.dataset.a==='toggleEx'&&e.type==='change'){A.toggleEx(t.dataset.i,null,t);return}
   if(t.dataset.a==='toggleAk'&&e.type==='change'){A.toggleAk(t.dataset.i,null,t);return}
   const p=t.dataset.p;if(!p||!S.sel)return;
@@ -1497,7 +1583,7 @@ async function boot(){
     await Store.get('meta','trainer');storeOk=true;
     const all=await Store.all('clients');Object.keys(all).forEach(id=>S.clients[id]=all[id]);
     S.trainer=(await Store.get('meta','trainer'))||'';$('#trainer').value=S.trainer;
-    S.deleted=(await Store.get('meta','deleted'))||{};S.lastSync=(await Store.get('meta','lastSync'))||null;S.cloud=(await Store.get('meta','cloud'))||null;
+    S.deleted=(await Store.get('meta','deleted'))||{};S.lastSync=(await Store.get('meta','lastSync'))||null;S.cloud=(await Store.get('meta','cloud'))||null;S.tabOrder=(await Store.get('meta','tabOrder'))||null;
     if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
     await dailyBackup();await listBackups();
     setSave(S.lastSync?'Última actualización: '+fmtStamp(S.lastSync):'Guardado en este dispositivo');
