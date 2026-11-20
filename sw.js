@@ -1,4 +1,4 @@
-const V = 'seguimiento-v4.2';
+const V = 'seguimiento-v4.3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'libs/html2canvas.min.js', 'libs/jspdf.umd.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'fonts/archivo-latin-500-normal.woff2', 'fonts/archivo-latin-700-normal.woff2', 'fonts/archivo-latin-800-normal.woff2',
